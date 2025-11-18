@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000814">
+    <title>CLOSE ENCOUNTERS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Audio Elements -->
+    <audio id="chickenSound" src="chicken.mp3" preload="auto"></audio>
+    <audio id="cowSound" src="cow.mp3" preload="auto"></audio>
+    <audio id="tractorBeamSound" src="tractor-beam.mp3" preload="auto"></audio>
+    <audio id="ufoFlyingSound" src="ufo-flying.mp3" preload="auto" loop></audio>
+    <audio id="startScreenMusic" src="startscreen.mp3" preload="auto" loop></audio>
+
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <div id="hud">
+            <div id="score">SPECIMENS: 0</div>
+            <div id="weightBar">
+                <div class="weight-label">CARGO WEIGHT</div>
+                <div class="weight-container">
+                    <div id="weightFill"></div>
+                </div>
+                <div class="weight-status" id="weightStatus">OPTIMAL</div>
+            </div>
+            <div id="stats">
+                <div class="stat">🐄 <span id="cowsAbducted">0</span></div>
+                <div class="stat">🐔 <span id="chickensAbducted">0</span></div>
+                <div class="stat">👨‍🌾 <span id="farmersAbducted">0</span></div>
+            </div>
+            <div id="altitude">ALTITUDE: <span id="altitudeValue">100</span>%</div>
+        </div>
+        
+        <button id="tradeBtn" class="btn btn-trade">
+            💰 TRADE SPECIMENS
+        </button>
+        
+        <button id="shopBtn" class="btn btn-shop">🛸 SHOP</button>
+        
+        <div id="comboDisplay">
+            COMBO x<span id="comboMultiplier">1</span>
+        </div>
+    </div>
+
+    <div id="menuScreen">
+        <div id="ufoAnimation">🛸</div>
+        <div id="title">CLOSE ENCOUNTERS</div>
+        <div id="subtitle">ALIEN ABDUCTION SIMULATOR</div>
+        
+        <div id="menuStats">
+            <div class="menu-stat-line"><span class="menu-emoji">🎯</span> TAP TO ABDUCT TARGETS</div>
+            <div class="menu-stat-line"><span class="menu-emoji">⚖️</span> MANAGE CARGO WEIGHT</div>
+            <div class="menu-stat-line"><span class="menu-emoji">💰</span> TRADE FOR CURRENCY</div>
+            <div class="menu-stat-line"><span class="menu-emoji">⚠️</span> DON'T CRASH!</div>
+        </div>
+        
+        <button id="startBtn" class="btn btn-start">BEGIN MISSION</button>
+    </div>
+
+    <div id="shopModal">
+        <button class="close-btn btn">✕</button>
+        <div class="shop-title">UFO UPGRADES</div>
+        <div class="currency-display">
+            💰 CURRENCY: <span id="currencyAmount">0</span>
+        </div>
+        <div id="upgradeList"></div>
+    </div>
+
+    <div id="gameOverScreen">
+        <div class="game-over-content">
+            <div class="game-over-title">MISSION FAILED</div>
+            <div class="game-over-subtitle">UFO CRASHED!</div>
+            <div id="finalStats">
+                <div class="final-stat">Specimens Collected: <span id="finalSpecimens">0</span></div>
+                <div class="final-stat">Currency Earned: <span id="finalCurrency">0</span></div>
+                <div class="final-stat">Total Abductions: <span id="finalAbductions">0</span></div>
+            </div>
+            <button id="restartBtn" class="btn btn-restart">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>
