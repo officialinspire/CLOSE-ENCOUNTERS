@@ -236,7 +236,8 @@ const ufo = {
     rotation: 0,
     isMovingToTarget: false,
     currentTarget: null,
-    beamSpeed: 3 // Base beam capture speed (upgradeable)
+    beamSpeed: 3, // Base beam capture speed (upgradeable)
+    targetQueue: [] // Queue for clicked targets
 };
 
 const targets = [];
@@ -606,15 +607,27 @@ function gameLoop() {
         return;
     }
 
-    // Calculate weight-based ship descent
+    // Calculate weight-based ship descent - MORE DRAMATIC AND STARTS FROM 0%
     const weightRatio = game.cargoWeight / game.maxWeight;
 
-    // Ship descends as weight increases, especially when critical
-    if (weightRatio > 0.5) {
-        const descentAmount = (weightRatio - 0.5) * 100; // Max 50 pixels descent at full weight
-        ufo.baseY = 100 + descentAmount;
-    } else {
-        ufo.baseY = 100;
+    // Ship descends progressively as it gains weight (quadratic for more drama)
+    // At 0% weight: 0 descent
+    // At 50% weight: ~75 pixels descent
+    // At 100% weight: ~300 pixels descent
+    const descentAmount = Math.pow(weightRatio, 1.5) * 300;
+    ufo.baseY = 100 + descentAmount;
+
+    // Process target queue - get next target if UFO is idle
+    if (!ufo.isMovingToTarget && !ufo.currentTarget && ufo.targetQueue.length > 0) {
+        // Get next target from queue
+        const nextTarget = ufo.targetQueue.shift();
+
+        // Verify target still exists and hasn't been abducted
+        if (targets.includes(nextTarget) && !nextTarget.isAbducted && !nextTarget.isBeaming) {
+            ufo.currentTarget = nextTarget;
+            ufo.isMovingToTarget = true;
+            playSound('tractorBeam');
+        }
     }
 
     // Update UFO position - smooth movement to target
@@ -654,10 +667,11 @@ function gameLoop() {
                 target.isBeaming = false;
             }
 
+            // Clear current target so queue can be processed
             ufo.currentTarget = null;
         }
-    } else {
-        // Normal UFO movement
+    } else if (!ufo.isMovingToTarget && !ufo.currentTarget) {
+        // Normal UFO movement when idle
         const dx = ufo.targetX - ufo.x;
         if (Math.abs(dx) > 1) {
             ufo.x += dx * 0.1;
@@ -772,12 +786,9 @@ function processAbduction(target) {
     }
 }
 
-// Input handling - Enhanced for all devices with improved tractor beam logic
+// Input handling - Enhanced for all devices with QUEUE SYSTEM for idle clicker gameplay
 function handleInput(x, y) {
     if (!game.isPlaying || game.isGameOver || game.isPaused) return;
-
-    // Don't allow new target selection if already moving to a target
-    if (ufo.isMovingToTarget) return;
 
     let targetFound = false;
 
@@ -785,19 +796,32 @@ function handleInput(x, y) {
     targets.forEach(target => {
         if (target.isAbducted || target.isBeaming) return;
 
+        // Skip if already in queue
+        if (ufo.targetQueue.includes(target)) return;
+
+        // Skip if currently being processed
+        if (ufo.currentTarget === target) return;
+
         const distance = Math.sqrt(
             Math.pow(target.x - x, 2) +
             Math.pow(target.y - y, 2)
         );
 
         if (distance < target.width && !targetFound) {
-            // Play tractor beam sound
-            playSound('tractorBeam');
-
-            // Set UFO to move to this target
-            ufo.isMovingToTarget = true;
-            ufo.currentTarget = target;
+            // Add target to queue
+            ufo.targetQueue.push(target);
             targetFound = true;
+
+            // Visual feedback - brief beam flash
+            beams.push({
+                x: ufo.x,
+                y: ufo.y + 20,
+                targetX: target.x,
+                targetY: target.y,
+                life: 10
+            });
+
+            // If UFO is idle, process immediately will happen in game loop
         }
     });
 
@@ -1030,6 +1054,7 @@ function resetGame() {
     ufo.targetX = canvas.width / 2;
     ufo.isMovingToTarget = false;
     ufo.currentTarget = null;
+    ufo.targetQueue = [];
 
     // Clear targets
     targets.length = 0;
@@ -1167,6 +1192,7 @@ document.getElementById('quitBtn').addEventListener('click', () => {
     ufo.baseY = 100;
     ufo.isMovingToTarget = false;
     ufo.currentTarget = null;
+    ufo.targetQueue = [];
 
     updateUI();
 });
