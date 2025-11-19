@@ -24,7 +24,13 @@ const game = {
     },
     isPlaying: false,
     isGameOver: false,
-    soundsEnabled: true
+    soundsEnabled: true,
+    musicEnabled: true,
+    isPaused: false,
+    difficulty: 'normal', // normal, easy, hard
+    isCrashing: false,
+    crashAnimationFrame: 0,
+    explosionParticles: []
 };
 
 // Audio elements
@@ -33,12 +39,14 @@ const sounds = {
     cow: document.getElementById('cowSound'),
     tractorBeam: document.getElementById('tractorBeamSound'),
     ufoFlying: document.getElementById('ufoFlyingSound'),
-    startScreen: document.getElementById('startScreenMusic')
+    startScreen: document.getElementById('startScreenMusic'),
+    gameMusic: document.getElementById('gameMusic')
 };
 
 // Set volume levels for better balance
 sounds.ufoFlying.volume = 0.3;
 sounds.startScreen.volume = 0.4;
+sounds.gameMusic.volume = 0.4;
 sounds.tractorBeam.volume = 0.5;
 sounds.chicken.volume = 0.6;
 sounds.cow.volume = 0.6;
@@ -77,12 +85,43 @@ function startBackgroundMusic() {
     }
 }
 
+// Fade audio function
+function fadeAudio(audio, targetVolume, duration = 1000) {
+    const startVolume = audio.volume;
+    const volumeChange = targetVolume - startVolume;
+    const steps = 20;
+    const stepDuration = duration / steps;
+    let currentStep = 0;
+
+    const interval = setInterval(() => {
+        currentStep++;
+        audio.volume = Math.max(0, Math.min(1, startVolume + (volumeChange * currentStep / steps)));
+
+        if (currentStep >= steps) {
+            clearInterval(interval);
+            if (targetVolume === 0) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        }
+    }, stepDuration);
+}
+
 // Stop menu music and start game sounds
 function startGameSounds() {
     try {
-        sounds.startScreen.pause();
-        sounds.startScreen.currentTime = 0;
-        
+        // Fade out menu music
+        fadeAudio(sounds.startScreen, 0, 1000);
+
+        // Fade in game music
+        if (game.musicEnabled) {
+            setTimeout(() => {
+                sounds.gameMusic.volume = 0;
+                sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
+                fadeAudio(sounds.gameMusic, 0.4, 1500);
+            }, 500);
+        }
+
         if (game.soundsEnabled) {
             sounds.ufoFlying.play().catch(e => console.log('UFO sound prevented:', e));
         }
@@ -96,8 +135,40 @@ function stopGameSounds() {
     try {
         sounds.ufoFlying.pause();
         sounds.ufoFlying.currentTime = 0;
+
+        if (sounds.gameMusic && !sounds.gameMusic.paused) {
+            fadeAudio(sounds.gameMusic, 0, 500);
+        }
     } catch (e) {
         console.log('Error stopping sounds:', e);
+    }
+}
+
+// Pause game sounds
+function pauseGameSounds() {
+    try {
+        if (sounds.ufoFlying && !sounds.ufoFlying.paused) {
+            sounds.ufoFlying.pause();
+        }
+        if (sounds.gameMusic && !sounds.gameMusic.paused) {
+            sounds.gameMusic.pause();
+        }
+    } catch (e) {
+        console.log('Error pausing sounds:', e);
+    }
+}
+
+// Resume game sounds
+function resumeGameSounds() {
+    try {
+        if (game.soundsEnabled && sounds.ufoFlying.paused) {
+            sounds.ufoFlying.play().catch(e => console.log('UFO sound prevented:', e));
+        }
+        if (game.musicEnabled && sounds.gameMusic.paused) {
+            sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
+        }
+    } catch (e) {
+        console.log('Error resuming sounds:', e);
     }
 }
 
@@ -160,8 +231,12 @@ const ufo = {
     width: 100,
     height: 50,
     targetX: canvas.width / 2,
+    targetY: null,
     speed: 8,
-    rotation: 0
+    rotation: 0,
+    isMovingToTarget: false,
+    currentTarget: null,
+    beamSpeed: 3 // Base beam capture speed (upgradeable)
 };
 
 const targets = [];
@@ -213,7 +288,7 @@ function spawnTarget() {
     const type = getRandomTargetType();
     const typeData = targetTypes[type];
     const padding = 50;
-    
+
     targets.push({
         type: type,
         x: Math.random() * (canvas.width - 100) + padding,
@@ -221,7 +296,9 @@ function spawnTarget() {
         width: typeData.size,
         height: typeData.size,
         isAbducted: false,
+        isBeaming: false,
         beamY: 0,
+        beamProgress: 0,
         speed: typeData.speed,
         direction: Math.random() > 0.5 ? 1 : -1,
         emoji: typeData.emoji,
@@ -407,10 +484,12 @@ function drawBeam(beam) {
 
 function drawTarget(target) {
     if (target.isAbducted) {
-        target.beamY = Math.max(target.beamY - 4, ufo.y);
+        // Smooth beam up animation
+        const beamSpeed = ufo.beamSpeed + (game.upgrades.beamPower.level * 0.5);
+        target.beamY = Math.max(target.beamY - beamSpeed, ufo.y);
         target.y = target.beamY;
         target.wobble += 0.2;
-        
+
         if (target.beamY <= ufo.y) {
             return false;
         }
@@ -418,34 +497,77 @@ function drawTarget(target) {
         // Move target
         target.x += target.speed * target.direction;
         target.wobble += 0.1;
-        
+
         // Bounce off edges
         if (target.x < 50 || target.x > canvas.width - 50) {
             target.direction *= -1;
         }
     }
-    
+
     // Draw target
     ctx.save();
     ctx.translate(target.x, target.y);
     ctx.rotate(Math.sin(target.wobble) * 0.1);
-    
+
     ctx.font = `${target.width}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(target.emoji, 0, 0);
-    
+
     // Selection indicator
-    if (!target.isAbducted) {
+    if (!target.isAbducted && !target.isBeaming) {
         ctx.strokeStyle = 'rgba(0, 255, 136, 0.5)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(0, 0, target.width / 2 + 5, 0, Math.PI * 2);
         ctx.stroke();
     }
-    
+
     ctx.restore();
     return true;
+}
+
+// Explosion particle system
+function createExplosion(x, y) {
+    for (let i = 0; i < 50; i++) {
+        const angle = (Math.PI * 2 * i) / 50;
+        const speed = Math.random() * 5 + 2;
+        game.explosionParticles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 10 + 5,
+            life: 60,
+            maxLife: 60,
+            color: Math.random() > 0.5 ? '#ff4444' : '#ffaa00'
+        });
+    }
+}
+
+function drawExplosion() {
+    game.explosionParticles.forEach((particle, index) => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += 0.2; // Gravity
+        particle.life--;
+
+        const alpha = particle.life / particle.maxLife;
+        ctx.fillStyle = particle.color.replace(')', `, ${alpha})`).replace('#', 'rgba(').replace(/(.{2})(.{2})(.{2})/, (_, r, g, b) => {
+            return `rgba(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)}, ${alpha})`;
+        });
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (particle.life <= 0) {
+            game.explosionParticles.splice(index, 1);
+        }
+    });
+    ctx.shadowBlur = 0;
 }
 
 // Game loop
@@ -454,137 +576,66 @@ const spawnInterval = 1800; // DECREASED from 2000 for faster spawning
 
 function gameLoop() {
     if (!game.isPlaying || game.isGameOver) return;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBackground();
-    
-    // Update UFO position
-    const dx = ufo.targetX - ufo.x;
-    if (Math.abs(dx) > 1) {
-        ufo.x += dx * 0.1;
-        ufo.rotation = dx * 0.001;
-    } else {
-        ufo.rotation *= 0.95;
-    }
-    
-    // Bob UFO slightly
-    ufo.y = ufo.baseY + Math.sin(Date.now() / 500) * 8;
-    
-    // Draw beams
-    beams.forEach((beam, index) => {
-        drawBeam(beam);
-        beam.life--;
-        if (beam.life <= 0) {
-            beams.splice(index, 1);
-        }
-    });
-    
-    // Draw and update targets
-    for (let i = targets.length - 1; i >= 0; i--) {
-        const keep = drawTarget(targets[i]);
-        if (!keep) {
-            targets.splice(i, 1);
-        }
-    }
-    
-    // Spawn new targets - INCREASED spawn rate
-    const now = Date.now();
-    if (now - lastSpawnTime > spawnInterval && targets.length < 10) { // Increased max from 8
-        spawnTarget();
-        lastSpawnTime = now;
-    }
-    
-    drawUFO();
-    
-    // Update altitude based on weight
-    const weightRatio = game.cargoWeight / game.maxWeight;
-    const altitudeLoss = game.altitudeDecrease * weightRatio * 0.5; // Slightly reduced impact
-    game.altitude -= altitudeLoss;
-    
-    // Combo timer
-    if (game.combo > 0) {
-        game.comboTimer--;
-        if (game.comboTimer <= 0) {
-            game.combo = 0;
-            game.comboMultiplier = 1;
-            document.getElementById('comboDisplay').classList.remove('active');
-        }
-    }
-    
-    // Check game over
-    if (game.altitude <= 0) {
-        stopGameSounds();
-        gameOver();
+    if (game.isPaused) {
+        requestAnimationFrame(gameLoop);
         return;
     }
-    
-    updateUI();
-    requestAnimationFrame(gameLoop);
-}
 
-// Input handling - Enhanced for all devices
-function handleInput(x, y) {
-    if (!game.isPlaying || game.isGameOver) return;
-    
-    // Update UFO target
-    ufo.targetX = x;
-    
-    // Play tractor beam sound
-    playSound('tractorBeam');
-    
-    let abducted = false;
-    
-    // Check if clicked on a target
-    targets.forEach(target => {
-        if (target.isAbducted) return;
-        
-        const distance = Math.sqrt(
-            Math.pow(target.x - x, 2) + 
-            Math.pow(target.y - y, 2)
-        );
-        
-        if (distance < target.width) {
-            // Check if we can carry more weight
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
+
+    // Handle crash animation
+    if (game.isCrashing) {
+        game.crashAnimationFrame++;
+
+        // Continue moving ship down during crash
+        ufo.y += 3;
+
+        // Draw explosion effects
+        drawExplosion();
+        drawUFO();
+
+        // End crash animation after enough frames
+        if (game.crashAnimationFrame > 60) {
+            stopGameSounds();
+            gameOver();
+            return;
+        }
+
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    // Calculate weight-based ship descent
+    const weightRatio = game.cargoWeight / game.maxWeight;
+
+    // Ship descends as weight increases, especially when critical
+    if (weightRatio > 0.5) {
+        const descentAmount = (weightRatio - 0.5) * 100; // Max 50 pixels descent at full weight
+        ufo.baseY = 100 + descentAmount;
+    } else {
+        ufo.baseY = 100;
+    }
+
+    // Update UFO position - smooth movement to target
+    if (ufo.isMovingToTarget && ufo.currentTarget) {
+        const target = ufo.currentTarget;
+        const dx = target.x - ufo.x;
+        const distanceToTarget = Math.abs(dx);
+
+        if (distanceToTarget > 5) {
+            // Move towards target
+            ufo.x += dx * 0.15;
+            ufo.rotation = dx * 0.001;
+        } else {
+            // Reached target, start beaming
+            ufo.isMovingToTarget = false;
+            target.isBeaming = true;
+
+            // Start the actual abduction process
             if (game.cargoWeight + target.weight <= game.maxWeight) {
                 target.isAbducted = true;
                 target.beamY = target.y;
-                
-                // Combo system
-                const now = Date.now();
-                const baseComboTime = 2000;
-                const comboExtension = game.upgrades.comboTime.level * 500;
-                const comboWindow = baseComboTime + comboExtension;
-                
-                if (now - game.lastAbductTime < comboWindow) {
-                    game.combo++;
-                    game.comboMultiplier = 1 + (game.combo * 0.1);
-                } else {
-                    game.combo = 1;
-                    game.comboMultiplier = 1;
-                }
-                game.lastAbductTime = now;
-                game.comboTimer = 120;
-                
-                // Add specimens with multiplier
-                const baseValue = target.value * game.specimensPerClick;
-                const totalValue = Math.floor(baseValue * game.comboMultiplier);
-                game.specimens += totalValue;
-                game.cargoWeight += target.weight;
-                game.totalAbducted++;
-                
-                // Play appropriate sound based on target type
-                if (target.type === 'cow') {
-                    game.cowsAbducted++;
-                    playSound('cow');
-                } else if (target.type === 'chicken') {
-                    game.chickensAbducted++;
-                    playSound('chicken');
-                } else if (target.type === 'farmer') {
-                    game.farmersAbducted++;
-                }
-                
-                updateUI();
-                abducted = true;
 
                 // Create beam effect
                 beams.push({
@@ -595,26 +646,163 @@ function handleInput(x, y) {
                     life: 30
                 });
 
-                // Particle effect
-                const displayText = game.combo > 1 ? 
-                    `+${totalValue} x${game.comboMultiplier.toFixed(1)}` : 
-                    `+${totalValue}`;
-                createParticle(target.x, target.y, displayText);
-                
-                // Show combo display
-                if (game.combo > 2) {
-                    document.getElementById('comboMultiplier').textContent = game.comboMultiplier.toFixed(1);
-                    document.getElementById('comboDisplay').classList.add('active');
-                }
+                // Process abduction rewards
+                processAbduction(target);
             } else {
-                // Ship is too heavy!
+                // Too heavy
                 createParticle(target.x, target.y, '⚠️ TOO HEAVY!', '#ff4444');
+                target.isBeaming = false;
             }
+
+            ufo.currentTarget = null;
+        }
+    } else {
+        // Normal UFO movement
+        const dx = ufo.targetX - ufo.x;
+        if (Math.abs(dx) > 1) {
+            ufo.x += dx * 0.1;
+            ufo.rotation = dx * 0.001;
+        } else {
+            ufo.rotation *= 0.95;
+        }
+    }
+
+    // Bob UFO slightly
+    ufo.y = ufo.baseY + Math.sin(Date.now() / 500) * 8;
+
+    // Draw beams
+    beams.forEach((beam, index) => {
+        drawBeam(beam);
+        beam.life--;
+        if (beam.life <= 0) {
+            beams.splice(index, 1);
+        }
+    });
+
+    // Draw and update targets
+    for (let i = targets.length - 1; i >= 0; i--) {
+        const keep = drawTarget(targets[i]);
+        if (!keep) {
+            targets.splice(i, 1);
+        }
+    }
+
+    // Spawn new targets - INCREASED spawn rate
+    const now = Date.now();
+    if (now - lastSpawnTime > spawnInterval && targets.length < 10) {
+        spawnTarget();
+        lastSpawnTime = now;
+    }
+
+    drawUFO();
+
+    // Update altitude based on weight
+    const altitudeLoss = game.altitudeDecrease * weightRatio * 0.5;
+    game.altitude -= altitudeLoss;
+
+    // Combo timer
+    if (game.combo > 0) {
+        game.comboTimer--;
+        if (game.comboTimer <= 0) {
+            game.combo = 0;
+            game.comboMultiplier = 1;
+            document.getElementById('comboDisplay').classList.remove('active');
+        }
+    }
+
+    // Check for critical altitude and trigger crash
+    if (game.altitude <= 0 && !game.isCrashing) {
+        game.isCrashing = true;
+        game.crashAnimationFrame = 0;
+        createExplosion(ufo.x, ufo.y);
+    }
+
+    updateUI();
+    requestAnimationFrame(gameLoop);
+}
+
+// Process abduction rewards
+function processAbduction(target) {
+    // Combo system
+    const now = Date.now();
+    const baseComboTime = 2000;
+    const comboExtension = game.upgrades.comboTime.level * 500;
+    const comboWindow = baseComboTime + comboExtension;
+
+    if (now - game.lastAbductTime < comboWindow) {
+        game.combo++;
+        game.comboMultiplier = 1 + (game.combo * 0.1);
+    } else {
+        game.combo = 1;
+        game.comboMultiplier = 1;
+    }
+    game.lastAbductTime = now;
+    game.comboTimer = 120;
+
+    // Add specimens with multiplier
+    const baseValue = target.value * game.specimensPerClick;
+    const totalValue = Math.floor(baseValue * game.comboMultiplier);
+    game.specimens += totalValue;
+    game.cargoWeight += target.weight;
+    game.totalAbducted++;
+
+    // Play appropriate sound based on target type
+    if (target.type === 'cow') {
+        game.cowsAbducted++;
+        playSound('cow');
+    } else if (target.type === 'chicken') {
+        game.chickensAbducted++;
+        playSound('chicken');
+    } else if (target.type === 'farmer') {
+        game.farmersAbducted++;
+    }
+
+    updateUI();
+
+    // Particle effect
+    const displayText = game.combo > 1 ?
+        `+${totalValue} x${game.comboMultiplier.toFixed(1)}` :
+        `+${totalValue}`;
+    createParticle(target.x, target.y, displayText);
+
+    // Show combo display
+    if (game.combo > 2) {
+        document.getElementById('comboMultiplier').textContent = game.comboMultiplier.toFixed(1);
+        document.getElementById('comboDisplay').classList.add('active');
+    }
+}
+
+// Input handling - Enhanced for all devices with improved tractor beam logic
+function handleInput(x, y) {
+    if (!game.isPlaying || game.isGameOver || game.isPaused) return;
+
+    // Don't allow new target selection if already moving to a target
+    if (ufo.isMovingToTarget) return;
+
+    let targetFound = false;
+
+    // Check if clicked on a target
+    targets.forEach(target => {
+        if (target.isAbducted || target.isBeaming) return;
+
+        const distance = Math.sqrt(
+            Math.pow(target.x - x, 2) +
+            Math.pow(target.y - y, 2)
+        );
+
+        if (distance < target.width && !targetFound) {
+            // Play tractor beam sound
+            playSound('tractorBeam');
+
+            // Set UFO to move to this target
+            ufo.isMovingToTarget = true;
+            ufo.currentTarget = target;
+            targetFound = true;
         }
     });
 
     // Visual feedback for missed clicks
-    if (!abducted) {
+    if (!targetFound) {
         beams.push({
             x: ufo.x,
             y: ufo.y + 20,
@@ -804,7 +992,12 @@ function resetGame() {
     // Keep currency and upgrades
     const savedCurrency = game.currency;
     const savedUpgrades = JSON.parse(JSON.stringify(game.upgrades));
-    
+    const savedSettings = {
+        soundsEnabled: game.soundsEnabled,
+        musicEnabled: game.musicEnabled,
+        difficulty: game.difficulty
+    };
+
     // Reset game state
     game.specimens = 0;
     game.currency = savedCurrency;
@@ -822,25 +1015,76 @@ function resetGame() {
     game.upgrades = savedUpgrades;
     game.isPlaying = true;
     game.isGameOver = false;
-    
+    game.isPaused = false;
+    game.isCrashing = false;
+    game.crashAnimationFrame = 0;
+    game.explosionParticles = [];
+    game.soundsEnabled = savedSettings.soundsEnabled;
+    game.musicEnabled = savedSettings.musicEnabled;
+    game.difficulty = savedSettings.difficulty;
+
     // Reset UFO position
     ufo.x = canvas.width / 2;
     ufo.y = 100;
     ufo.baseY = 100;
     ufo.targetX = canvas.width / 2;
-    
+    ufo.isMovingToTarget = false;
+    ufo.currentTarget = null;
+
     // Clear targets
     targets.length = 0;
     beams.length = 0;
     spawnInitialTargets();
-    
+
     document.getElementById('gameOverScreen').classList.remove('active');
-    
+
     // Restart game sounds
     startGameSounds();
-    
+
     updateUI();
     gameLoop();
+}
+
+// Pause/Resume game
+function togglePause() {
+    game.isPaused = !game.isPaused;
+
+    const pauseModal = document.getElementById('pauseModal');
+    if (game.isPaused) {
+        pauseModal.classList.add('active');
+        pauseGameSounds();
+        // Fade in menu music
+        sounds.startScreen.volume = 0;
+        sounds.startScreen.play().catch(e => console.log('Menu music prevented:', e));
+        fadeAudio(sounds.startScreen, 0.4, 500);
+    } else {
+        pauseModal.classList.remove('active');
+        resumeGameSounds();
+        // Fade out menu music
+        fadeAudio(sounds.startScreen, 0, 500);
+    }
+}
+
+// Update settings
+function updateSettings() {
+    const sfxCheckbox = document.getElementById('sfxToggle');
+    const musicCheckbox = document.getElementById('musicToggle');
+    const difficultySelect = document.getElementById('difficultySelect');
+
+    game.soundsEnabled = sfxCheckbox.checked;
+    game.musicEnabled = musicCheckbox.checked;
+    game.difficulty = difficultySelect.value;
+
+    // Apply music setting immediately
+    if (!game.musicEnabled && sounds.gameMusic && !sounds.gameMusic.paused) {
+        fadeAudio(sounds.gameMusic, 0, 300);
+    } else if (game.musicEnabled && game.isPlaying && !game.isPaused && sounds.gameMusic.paused) {
+        sounds.gameMusic.volume = 0;
+        sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
+        fadeAudio(sounds.gameMusic, 0.4, 300);
+    }
+
+    createParticle(canvas.width / 2, 150, '✓ SETTINGS SAVED', '#00ff88');
 }
 
 // Event listeners
@@ -869,6 +1113,62 @@ document.querySelector('.close-btn').addEventListener('click', () => {
 
 document.getElementById('restartBtn').addEventListener('click', () => {
     resetGame();
+});
+
+document.getElementById('pauseBtn').addEventListener('click', () => {
+    togglePause();
+});
+
+document.getElementById('resumeBtn').addEventListener('click', () => {
+    togglePause();
+});
+
+document.getElementById('applySettingsBtn').addEventListener('click', () => {
+    updateSettings();
+});
+
+document.getElementById('quitBtn').addEventListener('click', () => {
+    // Stop game
+    game.isPlaying = false;
+    game.isPaused = false;
+    game.isGameOver = true;
+
+    // Close pause modal
+    document.getElementById('pauseModal').classList.remove('active');
+
+    // Stop all game sounds
+    stopGameSounds();
+
+    // Show menu screen
+    document.getElementById('menuScreen').style.display = 'flex';
+
+    // Start menu music
+    sounds.startScreen.volume = 0;
+    sounds.startScreen.play().catch(e => console.log('Menu music prevented:', e));
+    fadeAudio(sounds.startScreen, 0.4, 1000);
+
+    // Reset game state for next play
+    game.specimens = 0;
+    game.cargoWeight = 0;
+    game.altitude = 100;
+    game.cowsAbducted = 0;
+    game.chickensAbducted = 0;
+    game.farmersAbducted = 0;
+    game.totalAbducted = 0;
+    game.combo = 0;
+    game.comboMultiplier = 1;
+    game.isCrashing = false;
+    game.crashAnimationFrame = 0;
+    game.explosionParticles = [];
+    targets.length = 0;
+    beams.length = 0;
+    ufo.x = canvas.width / 2;
+    ufo.y = 100;
+    ufo.baseY = 100;
+    ufo.isMovingToTarget = false;
+    ufo.currentTarget = null;
+
+    updateUI();
 });
 
 // Animate menu stars
