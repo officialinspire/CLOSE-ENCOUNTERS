@@ -1236,8 +1236,41 @@ function animateMenuStars() {
 }
 animateMenuStars();
 
-// Start menu music on page load
-startBackgroundMusic();
+// Handle video intro
+const videoIntro = document.getElementById('videoIntro');
+const introVideo = document.getElementById('introVideo');
+const menuScreen = document.getElementById('menuScreen');
+
+function showMenuScreen() {
+    // Fade out video intro
+    videoIntro.classList.add('fade-out');
+
+    // After fade out completes, hide video and show menu
+    setTimeout(() => {
+        videoIntro.classList.add('hidden');
+        menuScreen.classList.add('fade-in');
+
+        // Start menu music after video ends
+        startBackgroundMusic();
+    }, 1000); // Match the fade-out transition duration
+}
+
+// Handle video ended event
+introVideo.addEventListener('ended', showMenuScreen);
+
+// Handle video error (fallback to menu immediately)
+introVideo.addEventListener('error', () => {
+    console.log('Video intro error, showing menu directly');
+    showMenuScreen();
+});
+
+// Mobile/autoplay fallback: if video doesn't play within 500ms, show menu
+setTimeout(() => {
+    if (introVideo.paused && introVideo.currentTime === 0) {
+        console.log('Video autoplay blocked, showing menu directly');
+        showMenuScreen();
+    }
+}, 500);
 
 // Initialize
 updateUI();
