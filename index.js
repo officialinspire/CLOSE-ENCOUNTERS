@@ -48,8 +48,8 @@ sounds.ufoFlying.volume = 0.25;
 sounds.startScreen.volume = 0.4;
 sounds.gameMusic.volume = 0.85; // Primary dominant audio - increased to be louder than other SFX
 sounds.tractorBeam.volume = 0.18; // Reduced to be less distracting
-sounds.chicken.volume = 0.5;
-sounds.cow.volume = 0.5;
+sounds.chicken.volume = 0.3; // Reduced to be less overwhelming
+sounds.cow.volume = 0.3; // Reduced to be less overwhelming
 
 // Play sound function with error handling
 function playSound(soundName) {
