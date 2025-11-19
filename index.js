@@ -46,8 +46,8 @@ const sounds = {
 // Set volume levels for better balance
 sounds.ufoFlying.volume = 0.3;
 sounds.startScreen.volume = 0.4;
-sounds.gameMusic.volume = 0.4;
-sounds.tractorBeam.volume = 0.5;
+sounds.gameMusic.volume = 0.75; // Primary dominant audio
+sounds.tractorBeam.volume = 0.2; // Reduced to be less distracting
 sounds.chicken.volume = 0.6;
 sounds.cow.volume = 0.6;
 
@@ -118,7 +118,7 @@ function startGameSounds() {
             setTimeout(() => {
                 sounds.gameMusic.volume = 0;
                 sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
-                fadeAudio(sounds.gameMusic, 0.4, 1500);
+                fadeAudio(sounds.gameMusic, 0.75, 1500);
             }, 500);
         }
 
@@ -1098,7 +1098,7 @@ function updateSettings() {
     } else if (game.musicEnabled && game.isPlaying && !game.isPaused && sounds.gameMusic.paused) {
         sounds.gameMusic.volume = 0;
         sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
-        fadeAudio(sounds.gameMusic, 0.4, 300);
+        fadeAudio(sounds.gameMusic, 0.75, 300);
     }
 
     createParticle(canvas.width / 2, 150, '✓ SETTINGS SAVED', '#00ff88');
