@@ -16,6 +16,37 @@ body {
     position: fixed;
 }
 
+/* Video Intro */
+#videoIntro {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 1;
+    transition: opacity 1s ease-out;
+}
+
+#videoIntro.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#videoIntro.hidden {
+    display: none;
+}
+
+#introVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
 #gameCanvas {
     position: absolute;
     top: 0;
@@ -262,6 +293,12 @@ body {
     align-items: center;
     z-index: 100;
     overflow: hidden;
+    opacity: 0;
+    transition: opacity 1.5s ease-in;
+}
+
+#menuScreen.fade-in {
+    opacity: 1;
 }
 
 .menu-stars {
@@ -302,6 +339,7 @@ body {
     animation: pulse-title 2s infinite;
     position: relative;
     z-index: 2;
+    text-align: center;
 }
 
 @keyframes pulse-title {
@@ -689,21 +727,25 @@ body {
     #title {
         font-size: 32px;
         letter-spacing: 4px;
+        text-align: center;
+        width: 100%;
+        padding: 0 20px;
     }
-    
+
     #subtitle {
         font-size: 13px;
+        text-align: center;
     }
-    
+
     .btn {
         font-size: 12px;
         padding: 12px 20px;
     }
-    
+
     #score {
         font-size: 18px;
     }
-    
+
     .menu-stat-line {
         font-size: 13px;
     }
