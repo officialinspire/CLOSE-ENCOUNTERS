@@ -19,6 +19,7 @@
     <audio id="tractorBeamSound" src="tractor-beam.mp3" preload="auto"></audio>
     <audio id="ufoFlyingSound" src="ufo-flying.mp3" preload="auto" loop></audio>
     <audio id="startScreenMusic" src="startscreen.mp3" preload="auto" loop></audio>
+    <audio id="gameMusic" src="CLOSE ENCOUNTERS.mp3" preload="auto" loop></audio>
 
     <canvas id="gameCanvas"></canvas>
     
@@ -45,7 +46,9 @@
         </button>
         
         <button id="shopBtn" class="btn btn-shop">🛸 SHOP</button>
-        
+
+        <button id="pauseBtn" class="btn btn-pause">⏸️ MENU</button>
+
         <div id="comboDisplay">
             COMBO x<span id="comboMultiplier">1</span>
         </div>
@@ -73,6 +76,48 @@
             💰 CURRENCY: <span id="currencyAmount">0</span>
         </div>
         <div id="upgradeList"></div>
+    </div>
+
+    <div id="pauseModal">
+        <div class="pause-content">
+            <div class="pause-title">⏸️ GAME PAUSED</div>
+
+            <div class="settings-section">
+                <div class="setting-title">SETTINGS</div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="sfxToggle" checked>
+                        <span>SOUND EFFECTS</span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="musicToggle" checked>
+                        <span>MUSIC</span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <span>DIFFICULTY</span>
+                        <select id="difficultySelect" class="difficulty-select">
+                            <option value="easy">EASY</option>
+                            <option value="normal" selected>NORMAL</option>
+                            <option value="hard">HARD</option>
+                        </select>
+                    </label>
+                </div>
+
+                <button id="applySettingsBtn" class="btn btn-apply">APPLY SETTINGS</button>
+            </div>
+
+            <div class="pause-buttons">
+                <button id="resumeBtn" class="btn btn-resume">▶️ RESUME GAME</button>
+                <button id="quitBtn" class="btn btn-quit">🚪 QUIT TO MENU</button>
+            </div>
+        </div>
     </div>
 
     <div id="gameOverScreen">
