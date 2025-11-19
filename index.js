@@ -231,13 +231,9 @@ const ufo = {
     width: 100,
     height: 50,
     targetX: canvas.width / 2,
-    targetY: null,
     speed: 8,
     rotation: 0,
-    isMovingToTarget: false,
-    currentTarget: null,
-    beamSpeed: 3, // Base beam capture speed (upgradeable)
-    targetQueue: [] // Queue for clicked targets
+    beamSpeed: 3 // Base beam capture speed (upgradeable)
 };
 
 const targets = [];
@@ -617,70 +613,13 @@ function gameLoop() {
     const descentAmount = Math.pow(weightRatio, 1.5) * 300;
     ufo.baseY = 100 + descentAmount;
 
-    // Process target queue - get next target if UFO is idle
-    if (!ufo.isMovingToTarget && !ufo.currentTarget && ufo.targetQueue.length > 0) {
-        // Get next target from queue
-        const nextTarget = ufo.targetQueue.shift();
-
-        // Verify target still exists and hasn't been abducted
-        if (targets.includes(nextTarget) && !nextTarget.isAbducted && !nextTarget.isBeaming) {
-            ufo.currentTarget = nextTarget;
-            ufo.isMovingToTarget = true;
-            playSound('tractorBeam');
-        }
-    }
-
-    // Update UFO position - smooth movement to target
-    if (ufo.isMovingToTarget && ufo.currentTarget) {
-        const target = ufo.currentTarget;
-        const dx = target.x - ufo.x;
-        const distanceToTarget = Math.abs(dx);
-
-        if (distanceToTarget > 5) {
-            // Move towards target
-            ufo.x += dx * 0.15;
-            ufo.rotation = dx * 0.001;
-        } else {
-            // Reached target, start beaming
-            ufo.isMovingToTarget = false;
-            target.isBeaming = true;
-
-            // Start the actual abduction process
-            if (game.cargoWeight + target.weight <= game.maxWeight) {
-                target.isAbducted = true;
-                target.beamY = target.y;
-
-                // Create beam effect
-                beams.push({
-                    x: ufo.x,
-                    y: ufo.y + 20,
-                    targetX: target.x,
-                    targetY: target.y,
-                    life: 30
-                });
-
-                // Process abduction rewards
-                processAbduction(target);
-
-                // Don't clear currentTarget yet - wait for beam animation to complete
-                // This prevents processing next target while current one is still beaming up
-            } else {
-                // Too heavy
-                createParticle(target.x, target.y, '⚠️ TOO HEAVY!', '#ff4444');
-                target.isBeaming = false;
-                // Clear current target since we're not beaming this one
-                ufo.currentTarget = null;
-            }
-        }
-    } else if (!ufo.isMovingToTarget && !ufo.currentTarget) {
-        // Normal UFO movement when idle
-        const dx = ufo.targetX - ufo.x;
-        if (Math.abs(dx) > 1) {
-            ufo.x += dx * 0.1;
-            ufo.rotation = dx * 0.001;
-        } else {
-            ufo.rotation *= 0.95;
-        }
+    // Smooth UFO horizontal movement toward target
+    const dx = ufo.targetX - ufo.x;
+    if (Math.abs(dx) > 1) {
+        ufo.x += dx * 0.1;
+        ufo.rotation = dx * 0.001;
+    } else {
+        ufo.rotation *= 0.95;
     }
 
     // Bob UFO slightly
@@ -702,11 +641,6 @@ function gameLoop() {
         if (!keep) {
             // Target's beam animation completed, remove it
             targets.splice(i, 1);
-
-            // If this was the current target being processed, clear it so queue can continue
-            if (ufo.currentTarget === target) {
-                ufo.currentTarget = null;
-            }
         }
     }
 
@@ -795,47 +729,99 @@ function processAbduction(target) {
     }
 }
 
-// Input handling - Enhanced for all devices with QUEUE SYSTEM for idle clicker gameplay
+// Input handling - Enhanced for instant, smooth clicker gameplay
 function handleInput(x, y) {
     if (!game.isPlaying || game.isGameOver || game.isPaused) return;
 
-    let targetFound = false;
+    // Update UFO target position for smooth movement
+    ufo.targetX = x;
+
+    // Play tractor beam sound
+    playSound('tractorBeam');
+
+    let abducted = false;
 
     // Check if clicked on a target
     targets.forEach(target => {
-        if (target.isAbducted || target.isBeaming) return;
-
-        // Skip if already in queue
-        if (ufo.targetQueue.includes(target)) return;
-
-        // Skip if currently being processed
-        if (ufo.currentTarget === target) return;
+        if (target.isAbducted) return;
 
         const distance = Math.sqrt(
             Math.pow(target.x - x, 2) +
             Math.pow(target.y - y, 2)
         );
 
-        if (distance < target.width && !targetFound) {
-            // Add target to queue
-            ufo.targetQueue.push(target);
-            targetFound = true;
+        if (distance < target.width) {
+            // Check if we can carry more weight
+            if (game.cargoWeight + target.weight <= game.maxWeight) {
+                target.isAbducted = true;
+                target.beamY = target.y;
 
-            // Visual feedback - brief beam flash
-            beams.push({
-                x: ufo.x,
-                y: ufo.y + 20,
-                targetX: target.x,
-                targetY: target.y,
-                life: 10
-            });
+                // Combo system
+                const now = Date.now();
+                const baseComboTime = 2000;
+                const comboExtension = game.upgrades.comboTime.level * 500;
+                const comboWindow = baseComboTime + comboExtension;
 
-            // If UFO is idle, process immediately will happen in game loop
+                if (now - game.lastAbductTime < comboWindow) {
+                    game.combo++;
+                    game.comboMultiplier = 1 + (game.combo * 0.1);
+                } else {
+                    game.combo = 1;
+                    game.comboMultiplier = 1;
+                }
+                game.lastAbductTime = now;
+                game.comboTimer = 120;
+
+                // Add specimens with multiplier
+                const baseValue = target.value * game.specimensPerClick;
+                const totalValue = Math.floor(baseValue * game.comboMultiplier);
+                game.specimens += totalValue;
+                game.cargoWeight += target.weight;
+                game.totalAbducted++;
+
+                // Play appropriate sound based on target type
+                if (target.type === 'cow') {
+                    game.cowsAbducted++;
+                    playSound('cow');
+                } else if (target.type === 'chicken') {
+                    game.chickensAbducted++;
+                    playSound('chicken');
+                } else if (target.type === 'farmer') {
+                    game.farmersAbducted++;
+                }
+
+                updateUI();
+                abducted = true;
+
+                // Create beam effect
+                beams.push({
+                    x: ufo.x,
+                    y: ufo.y + 20,
+                    targetX: target.x,
+                    targetY: target.y,
+                    life: 30
+                });
+
+                // Particle effect
+                const displayText = game.combo > 1 ?
+                    `+${totalValue} x${game.comboMultiplier.toFixed(1)}` :
+                    `+${totalValue}`;
+                createParticle(target.x, target.y, displayText);
+
+                // Show combo display
+                if (game.combo > 2) {
+                    document.getElementById('comboMultiplier').textContent = game.comboMultiplier.toFixed(1);
+                    document.getElementById('comboDisplay').classList.add('active');
+                }
+            } else {
+                // Ship is too heavy!
+                createParticle(target.x, target.y, '⚠️ TOO HEAVY!', '#ff4444');
+            }
         }
     });
 
     // Visual feedback for missed clicks
-    if (!targetFound) {
+    if (!abducted) {
         beams.push({
             x: ufo.x,
             y: ufo.y + 20,
@@ -1061,9 +1047,6 @@ function resetGame() {
     ufo.y = 100;
     ufo.baseY = 100;
     ufo.targetX = canvas.width / 2;
-    ufo.isMovingToTarget = false;
-    ufo.currentTarget = null;
-    ufo.targetQueue = [];
 
     // Clear targets
     targets.length = 0;
@@ -1199,9 +1182,6 @@ document.getElementById('quitBtn').addEventListener('click', () => {
     ufo.x = canvas.width / 2;
     ufo.y = 100;
     ufo.baseY = 100;
-    ufo.isMovingToTarget = false;
-    ufo.currentTarget = null;
-    ufo.targetQueue = [];
 
     updateUI();
 });
