@@ -1143,11 +1143,12 @@ function updateSettings() {
 // Event listeners
 document.getElementById('startBtn').addEventListener('click', () => {
     document.getElementById('menuScreen').style.display = 'none';
+    document.getElementById('ui').style.display = 'block'; // Show UI when game starts
     game.isPlaying = true;
-    
+
     // Transition from menu music to game sounds
     startGameSounds();
-    
+
     gameLoop();
 });
 
@@ -1192,7 +1193,8 @@ document.getElementById('quitBtn').addEventListener('click', () => {
     // Stop all game sounds
     stopGameSounds();
 
-    // Show menu screen
+    // Hide UI and show menu screen
+    document.getElementById('ui').style.display = 'none';
     document.getElementById('menuScreen').style.display = 'flex';
 
     // Start menu music
