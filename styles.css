@@ -16,6 +16,99 @@ body {
     position: fixed;
 }
 
+/* Tap to Start Screen */
+#tapToStart {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #000814 0%, #001d3d 50%, #000814 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    cursor: pointer;
+    transition: opacity 0.5s ease-out;
+}
+
+#tapToStart.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#tapToStart.fade-out {
+    display: none;
+}
+
+.tap-content {
+    text-align: center;
+    animation: pulse-tap 2s infinite;
+}
+
+.tap-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: float-ufo 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 30px #00ff88);
+}
+
+.tap-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    color: #00ff88;
+    text-shadow: 0 0 20px #00ff88, 0 0 40px rgba(0, 255, 136, 0.6), 0 0 60px rgba(0, 255, 136, 0.3);
+    margin-bottom: 30px;
+    letter-spacing: 6px;
+}
+
+.tap-instruction {
+    font-family: 'Exo 2', sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: #88ffcc;
+    margin-bottom: 20px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(136, 255, 204, 0.5);
+}
+
+.tap-hint {
+    font-size: 40px;
+    color: #00ff88;
+    animation: bounce-hint 1.5s infinite;
+    text-shadow: 0 0 15px #00ff88;
+}
+
+@keyframes pulse-tap {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+@keyframes bounce-hint {
+    0%, 100% { transform: translateY(0px); opacity: 1; }
+    50% { transform: translateY(15px); opacity: 0.6; }
+}
+
+/* Mobile optimization for tap screen */
+@media (max-width: 480px) {
+    .tap-title {
+        font-size: 32px;
+        letter-spacing: 4px;
+        padding: 0 20px;
+    }
+
+    .tap-instruction {
+        font-size: 16px;
+        letter-spacing: 2px;
+        padding: 0 20px;
+    }
+
+    .tap-icon {
+        font-size: 60px;
+    }
+}
+
 /* Video Intro */
 #videoIntro {
     position: fixed;

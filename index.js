@@ -1238,10 +1238,14 @@ function animateMenuStars() {
 }
 animateMenuStars();
 
-// Handle video intro
+// Handle tap to start and video intro
+const tapToStart = document.getElementById('tapToStart');
 const videoIntro = document.getElementById('videoIntro');
 const introVideo = document.getElementById('introVideo');
 const menuScreen = document.getElementById('menuScreen');
+
+// Initially hide the video (it will be shown after tap)
+videoIntro.style.display = 'none';
 
 function showMenuScreen() {
     // Fade out video intro
@@ -1257,6 +1261,44 @@ function showMenuScreen() {
     }, 1000); // Match the fade-out transition duration
 }
 
+// Handle tap to start
+function handleTapToStart() {
+    // Hide tap to start screen
+    tapToStart.classList.add('hidden');
+
+    setTimeout(() => {
+        tapToStart.classList.add('fade-out');
+
+        // Show and start video with audio
+        videoIntro.style.display = 'flex';
+        introVideo.muted = false; // Enable audio
+
+        // Try to play the video with audio
+        const playPromise = introVideo.play();
+
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('Video playing with audio');
+            }).catch(error => {
+                console.log('Video play failed, trying muted:', error);
+                // Fallback to muted if audio fails
+                introVideo.muted = true;
+                introVideo.play().catch(e => {
+                    console.log('Muted video also failed, showing menu:', e);
+                    showMenuScreen();
+                });
+            });
+        }
+    }, 500); // Short delay for smooth transition
+}
+
+// Add tap/click listeners to tap-to-start screen
+tapToStart.addEventListener('click', handleTapToStart);
+tapToStart.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    handleTapToStart();
+}, { passive: false });
+
 // Handle video ended event
 introVideo.addEventListener('ended', showMenuScreen);
 
@@ -1265,14 +1307,6 @@ introVideo.addEventListener('error', () => {
     console.log('Video intro error, showing menu directly');
     showMenuScreen();
 });
-
-// Mobile/autoplay fallback: if video doesn't play within 500ms, show menu
-setTimeout(() => {
-    if (introVideo.paused && introVideo.currentTime === 0) {
-        console.log('Video autoplay blocked, showing menu directly');
-        showMenuScreen();
-    }
-}, 500);
 
 // Initialize
 updateUI();
