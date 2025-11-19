@@ -65,6 +65,7 @@ body {
     height: 100%;
     pointer-events: none;
     z-index: 10;
+    display: none; /* Hidden until game starts */
 }
 
 #ui > * {
@@ -294,7 +295,7 @@ body {
     z-index: 100;
     overflow: hidden;
     opacity: 0;
-    transition: opacity 1.5s ease-in;
+    transition: opacity 1s ease-in; /* Match video fade-out timing */
 }
 
 #menuScreen.fade-in {
