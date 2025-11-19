@@ -661,14 +661,16 @@ function gameLoop() {
 
                 // Process abduction rewards
                 processAbduction(target);
+
+                // Don't clear currentTarget yet - wait for beam animation to complete
+                // This prevents processing next target while current one is still beaming up
             } else {
                 // Too heavy
                 createParticle(target.x, target.y, '⚠️ TOO HEAVY!', '#ff4444');
                 target.isBeaming = false;
+                // Clear current target since we're not beaming this one
+                ufo.currentTarget = null;
             }
-
-            // Clear current target so queue can be processed
-            ufo.currentTarget = null;
         }
     } else if (!ufo.isMovingToTarget && !ufo.currentTarget) {
         // Normal UFO movement when idle
@@ -695,9 +697,16 @@ function gameLoop() {
 
     // Draw and update targets
     for (let i = targets.length - 1; i >= 0; i--) {
-        const keep = drawTarget(targets[i]);
+        const target = targets[i];
+        const keep = drawTarget(target);
         if (!keep) {
+            // Target's beam animation completed, remove it
             targets.splice(i, 1);
+
+            // If this was the current target being processed, clear it so queue can continue
+            if (ufo.currentTarget === target) {
+                ufo.currentTarget = null;
+            }
         }
     }
 
