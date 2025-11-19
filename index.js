@@ -44,12 +44,12 @@ const sounds = {
 };
 
 // Set volume levels for better balance
-sounds.ufoFlying.volume = 0.3;
+sounds.ufoFlying.volume = 0.25;
 sounds.startScreen.volume = 0.4;
-sounds.gameMusic.volume = 0.75; // Primary dominant audio
-sounds.tractorBeam.volume = 0.2; // Reduced to be less distracting
-sounds.chicken.volume = 0.6;
-sounds.cow.volume = 0.6;
+sounds.gameMusic.volume = 0.85; // Primary dominant audio - increased to be louder than other SFX
+sounds.tractorBeam.volume = 0.18; // Reduced to be less distracting
+sounds.chicken.volume = 0.5;
+sounds.cow.volume = 0.5;
 
 // Play sound function with error handling
 function playSound(soundName) {
@@ -118,7 +118,7 @@ function startGameSounds() {
             setTimeout(() => {
                 sounds.gameMusic.volume = 0;
                 sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
-                fadeAudio(sounds.gameMusic, 0.75, 1500);
+                fadeAudio(sounds.gameMusic, 0.85, 1500);
             }, 500);
         }
 
@@ -211,7 +211,11 @@ function resizeCanvas() {
     // Optimize for all devices - desktop, Android, and iOS
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    
+
+    // iOS Safari specific: fix viewport height including address bar
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+
     // Recenter UFO on resize
     if (game.isPlaying) {
         ufo.targetX = canvas.width / 2;
@@ -221,6 +225,11 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', () => {
     setTimeout(resizeCanvas, 100);
+});
+
+// Additional iOS viewport fix on scroll/focus
+window.addEventListener('scroll', () => {
+    window.scrollTo(0, 0);
 });
 
 // Game objects
@@ -657,6 +666,12 @@ function gameLoop() {
     const altitudeLoss = game.altitudeDecrease * weightRatio * 0.5;
     game.altitude -= altitudeLoss;
 
+    // Gradual altitude recovery when weight is low (encourages strategic trading)
+    if (weightRatio < 0.3 && game.altitude < 100) {
+        const recoveryRate = 0.15; // Slow recovery
+        game.altitude = Math.min(100, game.altitude + recoveryRate);
+    }
+
     // Combo timer
     if (game.combo > 0) {
         game.comboTimer--;
@@ -833,6 +848,7 @@ function handleInput(x, y) {
 }
 
 // Mouse/Touch event listeners with improved cross-platform support
+// Optimized for desktop, Android Chrome, and iOS Safari
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -849,10 +865,26 @@ canvas.addEventListener('touchstart', (e) => {
     handleInput(x, y);
 }, { passive: false });
 
+// Handle multi-touch (prevents zoom on double-tap for iOS)
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
 // Prevent context menu on long press (mobile)
 canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
 });
+
+// iOS-specific: prevent elastic scrolling
+document.addEventListener('touchmove', (e) => {
+    if (e.target === canvas) {
+        e.preventDefault();
+    }
+}, { passive: false });
 
 function createParticle(x, y, text, color = '#00ff88') {
     const particle = document.createElement('div');
@@ -905,7 +937,11 @@ function tradeSpecimens() {
         game.currency += Math.floor(tradeValue);
         game.cargoWeight = 0; // Empty cargo
         game.specimens = 0;
-        
+
+        // Restore altitude when emptying cargo - CRITICAL BUG FIX
+        // This prevents random crashes when trading
+        game.altitude = Math.min(100, game.altitude + 30);
+
         createParticle(canvas.width / 2, canvas.height / 2, `💰 +${Math.floor(tradeValue)} CURRENCY`, '#ffaa00');
         updateUI();
     }
@@ -1098,7 +1134,7 @@ function updateSettings() {
     } else if (game.musicEnabled && game.isPlaying && !game.isPaused && sounds.gameMusic.paused) {
         sounds.gameMusic.volume = 0;
         sounds.gameMusic.play().catch(e => console.log('Game music prevented:', e));
-        fadeAudio(sounds.gameMusic, 0.75, 300);
+        fadeAudio(sounds.gameMusic, 0.85, 300);
     }
 
     createParticle(canvas.width / 2, 150, '✓ SETTINGS SAVED', '#00ff88');
